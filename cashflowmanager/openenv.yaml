@@ -1,0 +1,22 @@
+spec_version: 1
+
+name: cashflowmanager
+type: space
+
+# Use generic python runtime instead of fastapi
+runtime: python
+
+# Entry point (runs your Gradio app)
+entrypoint: python server/app.py
+
+# Gradio default port
+port: 7860
+
+# Optional metadata (good for judges)
+description: RL-based invoice payment scheduler with LLM baseline (Groq)
+
+tags:
+  - reinforcement-learning
+  - finance
+  - openenv
+  - llm

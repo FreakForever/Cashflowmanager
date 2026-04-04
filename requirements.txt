@@ -1,0 +1,9 @@
+numpy
+pydantic
+gradio
+groq
+fastapi>=0.115.0
+uvicorn>=0.24.0
+
+
+

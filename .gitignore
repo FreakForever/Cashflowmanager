@@ -1,0 +1,27 @@
+# API Keys and Secrets
+.env
+
+# Environments
+venv/
+.venv/
+env/
+*.env
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Gradio/Temp data
+.gradio/
+flagged/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Build/Dist
+build/
+dist/
+*.egg-info/
