@@ -27,4 +27,4 @@ jobs:
 
           git remote add hf https://user:${HF_TOKEN}@huggingface.co/spaces/bhavishyasahay/cashflowmanager
 
-          git push hf main
+          git push --force hf main
