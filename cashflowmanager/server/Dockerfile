@@ -12,7 +12,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy project
-COPY cashflowmanager /app/env
+COPY . /app/env
 
 WORKDIR /app/env
 
