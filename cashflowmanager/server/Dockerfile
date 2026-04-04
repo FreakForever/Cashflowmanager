@@ -13,7 +13,6 @@ RUN apt-get update && \
 
 # Copy project
 COPY . /app/env
-
 WORKDIR /app/env
 
 # Ensure uv exists
