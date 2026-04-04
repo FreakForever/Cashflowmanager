@@ -10,7 +10,7 @@ runtime: python
 entrypoint: python server/app.py
 
 # Gradio default port
-port: 8000
+port: 7860
 
 # Optional metadata (good for judges)
 description: RL-based invoice payment scheduler with LLM baseline (Groq)
