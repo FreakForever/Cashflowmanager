@@ -14,9 +14,12 @@ version = "0.1.0"
 description = "Cashflowmanager environment for OpenEnv"
 requires-python = ">=3.10"
 dependencies = [
+    "gradio>=6.10.0",
+    "groq>=1.1.2",
     # Core OpenEnv runtime (provides FastAPI server + HTTP client types)
     # install from github
     # "openenv-core[core] @ git+https://github.com/meta-pytorch/OpenEnv.git",
+    "numpy>=2.2.6",
     "openenv-core[core]>=0.2.2",
     # Environment-specific dependencies
     # Add all dependencies needed for your environment here
@@ -26,6 +29,7 @@ dependencies = [
     # "gymnasium>=0.29.0",
     # "openspiel>=1.0.0",
     # "smolagents>=1.22.0,<2",
+    "python-dotenv>=1.2.2",
 ]
 
 [project.optional-dependencies]
