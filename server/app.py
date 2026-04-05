@@ -175,4 +175,4 @@ def create_ui():
 from gradio.routes import mount_gradio_app
 
 demo = create_ui()
-app = mount_gradio_app(app, demo, path="/web")
+mount_gradio_app(app, demo, path="/web")
