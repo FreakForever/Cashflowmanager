@@ -4,9 +4,25 @@
 #
 # Checks that your HF Space is live, Docker image builds, and openenv validate passes.
 #
+# Prerequisites:
+#   - Docker:       https://docs.docker.com/get-docker/
+#   - openenv-core: pip install openenv-core
+#   - curl (usually pre-installed)
+#
+# Run:
+#   curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/scripts/validate-submission.sh | bash -s -- <ping_url> [repo_dir]
+#
+#   Or download and run locally:
+#     chmod +x validate-submission.sh
+#     ./validate-submission.sh <ping_url> [repo_dir]
+#
 # Arguments:
 #   ping_url   Your HuggingFace Space URL (e.g. https://your-space.hf.space)
 #   repo_dir   Path to your repo (default: current directory)
+#
+# Examples:
+#   ./validate-submission.sh https://my-team.hf.space
+#   ./validate-submission.sh https://my-team.hf.space ./my-repo
 #
 
 set -uo pipefail
@@ -43,8 +59,7 @@ run_with_timeout() {
 
 portable_mktemp() {
   local prefix="${1:-validate}"
-  # Use current dir for tmp to avoid root /tmp issues in some environments
-  mktemp "./.${prefix}-XXXXXX" 2>/dev/null || mktemp
+  mktemp "${TMPDIR:-/tmp}/${prefix}-XXXXXX" 2>/dev/null || mktemp
 }
 
 CLEANUP_FILES=()
