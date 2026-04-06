@@ -1,3 +1,4 @@
+
 import os
 import json
 from dotenv import load_dotenv
@@ -10,77 +11,124 @@ except ImportError:
 
 load_dotenv()
 
-# Mandatory OpenAI Client Configuration (Disqualification Compliance)
 API_BASE_URL = os.environ.get("API_BASE_URL") or "https://api.groq.com/openai/v1"
 MODEL_NAME = os.environ.get("MODEL_NAME") or "llama-3.1-8b-instant"
-# Prioritize HF_TOKEN as per mandatory requirements
 API_KEY = os.environ.get("HF_TOKEN") or os.environ.get("GROQ_API_KEY") or os.environ.get("OPENAI_API_KEY")
 
 client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
-def groq_policy(s, history=None):
+# Cache: stores {day: {invoice_index: action_type}}
+_action_cache = {}
+
+def groq_policy(obs, history=None):
     """
-    Intelligent Decision Policy with History using the Modern OpenAI Responses API.
-    Decides whether to pay invoices (0: Skip, 1: Min, 2: Full).
+    Batched policy — one API call per day for ALL invoices.
+    Cache is keyed by day so Groq is only called once per day,
+    not once per invoice.
     """
-    # 1. Format the current state for the LLM
+    global _action_cache
+
+    if not obs.invoices:
+        return CashflowmanagerAction(type=0, invoice_id=0)
+
+    daily_index = obs.metadata.get("daily_index", 0)
+    invoices_today = obs.metadata.get("invoices_today", 1)
+    current_idx = min(daily_index, len(obs.invoices) - 1)
+    day_key = obs.day
+
+    if daily_index == 0 or day_key not in _action_cache:
+        _action_cache[day_key] = _fetch_all_actions(obs, history, invoices_today)
+
+    cached = _action_cache[day_key].get(daily_index)
+    if cached is not None:
+        action_type = max(0, min(2, int(cached)))
+    else:
+        action_type = 0 
+
+    inv = obs.invoices[current_idx]
+
+    if action_type == 2 and obs.cash < inv.amount:
+        action_type = 1 if obs.cash >= inv.min_payment else 0
+    if action_type == 1 and obs.cash < inv.min_payment:
+        action_type = 0
+
+    return CashflowmanagerAction(type=action_type, invoice_id=current_idx)
+
+
+def _fetch_all_actions(obs, history, invoices_today):
+    """
+    Single Groq call — asks for actions on ALL invoices for today.
+    Returns dict: {invoice_index: action_type}
+    """
+    today_invoices = obs.invoices[:invoices_today]
+
     invoices_str = ""
-    for i, inv in enumerate(s.invoices):
-        invoices_str += f"ID {i}: Amount {inv.amount:.2f}, Due in {inv.due_in} days, Late Fee {inv.late_fee}, Interest {inv.interest*100}%\n"
+    for i, inv in enumerate(today_invoices):
+        urgency = "OVERDUE" if inv.due_in <= 0 else \
+                  "URGENT"  if inv.due_in <= 2 else \
+                  "SOON"    if inv.due_in <= 4 else "OK"
+        invoices_str += (
+            f"  [{i}] {urgency} | Amount: {inv.amount:.2f} | "
+            f"Due in: {inv.due_in}d | Late Fee: {inv.late_fee} | "
+            f"Min: {inv.min_payment} | Interest: {inv.interest*100:.1f}%/day\n"
+        )
 
-    history_str = "No previous history."
+    history_str = "None yet."
     if history:
-        history_str = ""
-        for h in history:
-            history_str += f"Day {h['day']}: Action {h['action']} on Invoice {h['invoice_id']}, Reward: {h['reward']:.2f}, Late Fee: {h['late_fee']:.2f}, Interest: {h['interest']:.2f}\n"
+        history_str = "\n".join(
+            f"  Day {h['day']}: {h['action']} → "
+            f"Reward {h['reward']:.2f} | Late: {h['late_fee']:.0f} | Interest: {h['interest']:.2f}"
+            for h in history[-3:]
+        )
 
-    instructions = """
-    You are a Cashflow Management AI. Your goal is to maximize reward by minimizing penalties (late fees/interest) and maintaining liquidity.
-    
-    Action Definition:
-    - type=0: No action (Skip)
-    - type=1: Pay Minimum on an invoice
-    - type=2: Pay Full on an invoice
-    - invoice_id: The ID of the invoice (0-4)
-    
-    Strategic Note: Compare your previous actions and the resulting penalties/rewards. If an action led to a large negative reward (e.g. high late fees), adjust your strategy for the current state.
+    total_full = sum(inv.amount for inv in today_invoices)
+    total_min  = sum(inv.min_payment for inv in today_invoices)
 
-    You MUST output a valid JSON object with {"type": <int>, "invoice_id": <int>}.
-    Only return the JSON object, nothing else.
-    """
+    prompt = f"""You are a cashflow management AI. Decide actions for ALL {len(today_invoices)} invoices for today.
 
-    state_input = f"""
-    Current State:
-    Day: {s.day}
-    Cash: {s.cash:.2f}
-    Credit Used: {s.credit_used:.2f}
-    
-    Invoices:
-    {invoices_str}
+Day: {obs.day}
+Cash available: {obs.cash:.2f}
+Credit used so far: {obs.credit_used:.2f}
 
-    Previous Action History & Feedback:
-    {history_str}
-    """
+Today's invoices:
+{invoices_str}
+
+Cost if paying all full: {total_full:.2f} | Cost if paying all min: {total_min:.2f}
+Available cash: {obs.cash:.2f}
+
+Recent history:
+{history_str}
+
+RULES:
+- Total payments must NOT exceed available cash ({obs.cash:.2f})
+- Prioritize OVERDUE invoices first (they accumulate late fees every step)
+- URGENT invoices (due in 1-2 days) should be paid if cash allows
+- Skip only if cash is insufficient or invoice is not urgent
+- Minimize late fees and interest, maximize reward
+
+Respond ONLY with a JSON object in this exact format:
+{{"actions": [{{"invoice_id": 0, "type": 0}}, {{"invoice_id": 1, "type": 2}}, ...]}}
+
+Where type: 0=Skip, 1=Pay Min, 2=Pay Full
+Include one entry per invoice [{', '.join(str(i) for i in range(len(today_invoices)))}]"""
 
     try:
-        # Using the newer, efficient Responses API as requested
-        response = client.responses.create(
+        resp = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
             model=MODEL_NAME,
-            instructions=instructions,
-            input=state_input
+            response_format={"type": "json_object"},
+            temperature=0,
+            max_tokens=200,
+            timeout=15,
         )
-        
-        # Access the text output and parse JSON
-        content = response.output_text.strip()
-        # Handle cases where the model might wrap JSON in backticks
-        if content.startswith("```json"):
-            content = content.replace("```json", "", 1).replace("```", "").strip()
-        elif content.startswith("```"):
-            content = content.replace("```", "", 1).replace("```", "").strip()
-            
-        data = json.loads(content)
-        return CashflowmanagerAction(type=data["type"], invoice_id=data["invoice_id"])
+        raw = json.loads(resp.choices[0].message.content)
+
+        if "actions" in raw:
+            actions = raw["actions"]
+            return {a["invoice_id"]: a["type"] for a in actions}
+        else:
+            return {int(k): v for k, v in raw.items() if str(k).isdigit()}
+
     except Exception as e:
-        print(f"Policy Error (Responses API): {e}")
-        # Fallback to a safe default action
-        return CashflowmanagerAction(type=0, invoice_id=0)
+        print(f"[Policy] Groq error: {e} — defaulting all to skip")
+        return {}

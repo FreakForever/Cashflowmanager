@@ -1,7 +1,3 @@
-# =========================
-# Cashflowmanager Environment (REAL VERSION)
-# =========================
-
 import random
 import numpy as np
 from uuid import uuid4
@@ -16,37 +12,39 @@ except ImportError:
 
 from server.reward import compute_reward
 
-
-# -------------------------
-# Difficulty Presets
-# -------------------------
 DIFFICULTY_PRESETS = {
     "easy": {
-        "max_days": 10,
-        "num_invoices": 2,
+        "max_days": 3,
+        "num_invoices": 3,
         "amount_range": (50, 200),
+        "credit_limit": 500,
+        "due_day": (7, 10),
         "late_fee": 20,
         "interest": 0.01,
-        "starting_cash": 2000,
+        "starting_cash": 1000,
         "min_payment": 30,
     },
     "medium": {
         "max_days": 5,
         "num_invoices": 3,
-        "amount_range": (100, 500),
+        "amount_range": (200, 400),
+        "credit_limit": 1000,
+        "due_day": (5, 7),
         "late_fee": 50,
         "interest": 0.02,
-        "starting_cash": 1000,
+        "starting_cash": 1500,
         "min_payment": 50,
     },
     "hard": {
-        "max_days": 3,
-        "num_invoices": 5,
-        "amount_range": (200, 800),
+        "max_days": 7,
+        "num_invoices": 3,
+        "amount_range": (400, 700),
+        "credit_limit": 800,
+        "due_day": (2, 5),
         "late_fee": 100,
         "interest": 0.05,
-        "starting_cash": 500,
-        "min_payment": 75,
+        "starting_cash": 8000,
+        "min_payment": 100,
     },
 }
 
@@ -55,15 +53,14 @@ class CashflowmanagerEnvironment(Environment):
     """
     RL-based Invoice Payment Environment.
 
-    Agent must decide:
-    - Skip payment
-    - Pay minimum
-    - Pay full
+    Each day, num_invoices fresh invoices are generated.
+    Agent handles them one by one (one action per invoice).
+    Unpaid invoices carry over with compounding interest + late fees.
 
-    Goal:
-    Minimize penalties + interest while maintaining liquidity.
-
-    Supports difficulty modes: easy, medium, hard
+    Total steps = max_days × num_invoices
+      easy:   10 days × 2 invoices = 20 steps
+      medium:  5 days × 3 invoices = 15 steps
+      hard:    3 days × 5 invoices = 15 steps
     """
 
     SUPPORTS_CONCURRENT_SESSIONS: bool = True
@@ -72,24 +69,22 @@ class CashflowmanagerEnvironment(Environment):
         self.difficulty = difficulty
         self.seed = seed
         self.params = DIFFICULTY_PRESETS[difficulty]
-
         self.max_days = self.params["max_days"]
         self._state = State(episode_id=str(uuid4()), step_count=0)
 
         self.cash = self.params["starting_cash"]
         self.credit_used = 0
-        self.day = 0
+        self.day = 0            # reset() sets it to 1 before episode starts
         self.invoices = []
+        self.daily_queue = []
+        self.daily_index = 0
 
-    # -------------------------
-    # Generate invoices
-    # -------------------------
-    def _generate_invoices(self):
+    def _generate_daily_invoices(self):
         p = self.params
         return [
             Invoice(
                 amount=random.randint(p["amount_range"][0], p["amount_range"][1]),
-                due_in=random.randint(3, 15),
+                due_in=random.randint(p["due_day"][0], p["due_day"][1]),
                 late_fee=p["late_fee"],
                 min_payment=p["min_payment"],
                 interest=p["interest"],
@@ -97,11 +92,7 @@ class CashflowmanagerEnvironment(Environment):
             for _ in range(p["num_invoices"])
         ]
 
-    # -------------------------
-    # Reset
-    # -------------------------
     def reset(self, difficulty=None, seed=None) -> CashflowmanagerObservation:
-        # Allow overriding difficulty/seed on reset
         if difficulty is not None:
             self.difficulty = difficulty
             self.params = DIFFICULTY_PRESETS[difficulty]
@@ -109,68 +100,99 @@ class CashflowmanagerEnvironment(Environment):
         if seed is not None:
             self.seed = seed
 
-        # Seed for reproducibility
         if self.seed is not None:
             random.seed(self.seed)
 
         self._state = State(episode_id=str(uuid4()), step_count=0)
-
         self.max_days = self.params["max_days"]
         self.cash = self.params["starting_cash"]
         self.credit_used = 0
-        self.day = 0
-        self.invoices = self._generate_invoices()
+        self.day = 1
+
+        self.daily_queue = self._generate_daily_invoices()
+        self.daily_index = 0
+        self.invoices = list(self.daily_queue)
 
         return self._build_obs(reward=0.0, done=False)
 
-    # -------------------------
-    # Step
-    # -------------------------
     def step(self, action: CashflowmanagerAction) -> CashflowmanagerObservation:
         self._state.step_count += 1
 
-        late_fee_total = 0
-        interest_total = 0
+        late_fee_total = 0.0
+        interest_total = 0.0
         paid = 0
 
-        # --- Apply Action ---
+        if self.daily_index >= len(self.daily_queue):
+            return self._build_obs(reward=0.0, done=True)
+
+        inv = self.daily_queue[self.daily_index]
+
         if action.type != 0:
-            # Clamp invoice_id to valid range
-            inv_id = min(action.invoice_id, len(self.invoices) - 1)
-            inv = self.invoices[inv_id]
+            pay_amount = inv.min_payment if action.type == 1 else inv.amount
+            credit_limit = self.params.get("credit_limit", 1000)
+            available = self.cash + (credit_limit - self.credit_used)
+            pay_amount = min(pay_amount, available)
 
-            pay_amount = (
-                inv.min_payment if action.type == 1 else inv.amount
-            )
+            if pay_amount > self.cash:
+                credit_used_now = pay_amount - self.cash
+                self.credit_used += credit_used_now
+                self.cash = 0
+            else:
+                self.cash -= pay_amount
 
-            pay_amount = min(pay_amount, self.cash)
-
-            self.cash -= pay_amount
             inv.amount -= pay_amount
 
             if inv.amount <= 0:
                 inv.amount = 0
                 paid += 1
 
-        # --- Time Progress ---
-        for inv in self.invoices:
-            inv.due_in -= 1
+        # remove fully paid invoices
+        self.invoices = [i for i in self.invoices if i.amount > 0]
 
-            # Late fee
-            if inv.due_in < 0 and inv.amount > 0:
-                late_fee_total += inv.late_fee
-                inv.amount += inv.late_fee
+        # advance invoice index
+        self.daily_index += 1
+        done = False
 
-            # Interest
-            if inv.amount > 0:
-                interest = inv.amount * inv.interest
-                interest_total += interest
-                inv.amount += interest
+        # if all invoices for today handled → advance to next day
+        if self.daily_index >= len(self.daily_queue):
+            self.day += 1
 
-        # Deduct penalties from cash
-        self.cash -= late_fee_total
+            # --- Age ALL active invoices ONCE per day ---
+            for active_inv in self.invoices:
+                active_inv.due_in -= 1
 
-        # --- Reward ---
+                if active_inv.due_in < 0 and active_inv.amount > 0:
+                    late_fee_total += active_inv.late_fee
+                    active_inv.amount += active_inv.late_fee
+
+                if active_inv.amount > 0:
+                    interest = active_inv.amount * active_inv.interest
+                    interest_total += interest
+                    active_inv.amount += interest
+
+            # Remove invoices that became zero after aging
+            self.invoices = [i for i in self.invoices if i.amount > 0]
+
+            if self.day > self.max_days:
+                done = True
+                #penalize invoices that are actually overdue
+                for inv in self.invoices:
+                    if inv.amount > 0 and inv.due_in < 0:
+                        late_fee_total += inv.late_fee
+                        self.cash -= inv.late_fee
+            else:
+                #generate fresh invoices for next day
+                new_invoices = self._generate_daily_invoices()
+                carryovers = [i for i in self.daily_queue if i.amount > 0]
+                self.daily_queue = new_invoices + carryovers
+                self.daily_index = 0
+                self.invoices = list(self.daily_queue)
+        
+        if self.cash < 0:
+            self.credit_used += abs(self.cash)
+            self.cash = 0.0
+
+        # reward
         reward = compute_reward(
             cash=self.cash,
             late_fee=late_fee_total,
@@ -179,10 +201,6 @@ class CashflowmanagerEnvironment(Environment):
             paid=paid,
         )
 
-        # --- Update Time ---
-        self.day += 1
-        done = self.day >= self.max_days
-
         return self._build_obs(
             reward=reward,
             done=done,
@@ -190,9 +208,6 @@ class CashflowmanagerEnvironment(Environment):
             interest=interest_total,
         )
 
-    # -------------------------
-    # Build Observation
-    # -------------------------
     def _build_obs(self, reward, done, late_fee=0, interest=0):
         return CashflowmanagerObservation(
             day=self.day,
@@ -206,12 +221,11 @@ class CashflowmanagerEnvironment(Environment):
                 "interest": interest,
                 "step": self._state.step_count,
                 "difficulty": self.difficulty,
+                "daily_index": self.daily_index,
+                "invoices_today": len(self.daily_queue),
             },
         )
 
-    # -------------------------
-    # State property (required)
-    # -------------------------
     @property
     def state(self) -> State:
         return self._state

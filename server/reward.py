@@ -1,8 +1,8 @@
 def compute_reward(cash, late_fee, interest, credit_used, paid):
     return (
-        0.01 * cash
-        - 1.0 * late_fee
-        - 0.5 * interest
-        - 0.2 * credit_used
-        + 2.0 * paid
+        0.002 * cash              # reduced influence
+        - 2.0 * late_fee          # stronger penalty
+        - 1.5 * interest          # stronger penalty
+        - 0.5 * credit_used
+        + 10.0 * paid             # incentivize completion
     )
