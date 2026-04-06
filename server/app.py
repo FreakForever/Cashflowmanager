@@ -225,17 +225,35 @@ def run_simulation(difficulty="medium"):
 def build_ui():
     with gr.Blocks(title="Cashflow RL Simulator") as demo:
         gr.Markdown("# 💸 Cashflow RL Simulator")
-
-        difficulty = gr.Dropdown(
-            ["easy", "medium", "hard"],
-            value="medium",
-            label="Difficulty"
+        gr.Markdown(
+            "Simulates invoice payment decisions using an RL environment "
+            "with a Groq LLM (LLaMA 3.1) as the policy agent."
         )
 
-        run_btn = gr.Button("Run Simulation", variant="primary")
+        # 🔹 Top controls row
+        with gr.Row():
+            difficulty = gr.Dropdown(
+                ["easy", "medium", "hard"],
+                value="medium",
+                label="Select Difficulty",
+                scale=3
+            )
+            run_btn = gr.Button("Run Simulation", variant="primary", scale=1)
 
-        summary = gr.JSON(label="Results Summary")
-        table = gr.Dataframe(label="Simulation History")
+        # 🔹 Output layout (side-by-side)
+        with gr.Row():
+            with gr.Column(scale=1):
+                summary = gr.JSON(label="Results Summary")
+
+            with gr.Column(scale=3):
+                table = gr.Dataframe(
+                    label="Step-by-Step History",
+                    headers=[
+                        "Day","Type","Invoice ID","Action",
+                        "Cash","Credit","Late Fee","Interest","Reward"
+                    ],
+                    wrap=False,
+                )
 
         run_btn.click(
             run_simulation,
