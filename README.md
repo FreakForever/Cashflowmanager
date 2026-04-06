@@ -230,11 +230,24 @@ This verifies that:
 
 ### Running Locally
 
-Run the server locally for development:
-
 ```bash
-uvicorn server.app:app --reload
-```
+# Clone the repo
+git clone <your-repo-url>
+cd cashflowmanager
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up your .env file (e.g., API keys)
+cp .env.example .env
+
+### Option 1: Run the script directly
+*   **Port:** 7860
+*   **Command:** `python3 -m server.app`
+
+### Option 2: Run using Uvicorn CLI
+*   **Port:** 8000
+*   **Command:** `uvicorn server.app:app`
 
 ## Project Structure
 
