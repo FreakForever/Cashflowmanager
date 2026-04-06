@@ -152,7 +152,7 @@ except ImportError:
     from server.cashflowmanager_environment import CashflowmanagerEnvironment
 
 # -------------------------
-# Create OpenEnv app FIRST
+# Create OpenEnv app
 # -------------------------
 app: FastAPI = create_app(
     CashflowmanagerEnvironment,
@@ -162,14 +162,8 @@ app: FastAPI = create_app(
     max_concurrent_envs=1,
 )
 
-# 🚨 KEY FIX: override root BEFORE mounting Gradio
-@app.get("/")
-def root():
-    return {"message": "Loading UI..."}
-
-
 # -------------------------
-# Gradio UI
+# Gradio UI logic
 # -------------------------
 from server.client import groq_policy
 from server.tasks import run_task
@@ -233,27 +227,34 @@ def build_ui():
         gr.Markdown("# 💸 Cashflow RL Simulator")
 
         difficulty = gr.Dropdown(
-            ["easy", "medium", "hard"], value="medium"
+            ["easy", "medium", "hard"],
+            value="medium",
+            label="Difficulty"
         )
-        run_btn = gr.Button("Run Simulation")
 
-        summary = gr.JSON()
-        table = gr.Dataframe()
+        run_btn = gr.Button("Run Simulation", variant="primary")
 
-        run_btn.click(run_simulation, inputs=[difficulty], outputs=[summary, table])
+        summary = gr.JSON(label="Results Summary")
+        table = gr.Dataframe(label="Simulation History")
+
+        run_btn.click(
+            run_simulation,
+            inputs=[difficulty],
+            outputs=[summary, table],
+        )
 
     return demo
 
 
 # -------------------------
-# Mount UI at ROOT
+# Mount Gradio at ROOT
 # -------------------------
 gradio_app = build_ui()
 app = gr.mount_gradio_app(app, gradio_app, path="/")
 
 
 # -------------------------
-# Run
+# Run (for local dev)
 # -------------------------
 if __name__ == "__main__":
     import uvicorn
