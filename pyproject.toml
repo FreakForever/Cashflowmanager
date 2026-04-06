@@ -29,7 +29,12 @@ dependencies = [
     # "gymnasium>=0.29.0",
     # "openspiel>=1.0.0",
     # "smolagents>=1.22.0,<2",
-    "python-dotenv>=1.2.2",
+    # "python-dotenv>=1.2.2",
+    # "pydantic>=2.0.0",
+    # "openai>=1.0.0",
+    # "fastapi>=0.115.0",
+    # "uvicorn>=0.24.0",
+    # "pandas>=2.0.0",
 ]
 
 [project.optional-dependencies]

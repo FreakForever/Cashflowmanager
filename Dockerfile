@@ -56,5 +56,5 @@ HEALTHCHECK --interval=30s --timeout=5s \
   CMD curl -f http://localhost:7860 || exit 1
 
 # Run Gradio app
-# CMD ["python", "server/app.py"]
-CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["python", "server/app.py"]
+# CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
