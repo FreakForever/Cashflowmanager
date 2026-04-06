@@ -126,7 +126,7 @@ USE_PORT = 8000
 async def _print_ui_url():
     import logging
     logger = logging.getLogger("uvicorn.error")
-    logger.info(f"\033[1mCashflow UI running on http://127.0.0.1:{USE_PORT}/ui\033[0m")
+    # logger.info(f"\033[1mCashflow UI running on http://127.0.0.1:{USE_PORT}/ui\033[0m")
 
 
 if __name__ == "__main__":
