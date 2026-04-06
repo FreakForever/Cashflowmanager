@@ -6,7 +6,7 @@ colorTo: blue
 sdk: docker
 pinned: false
 app_port: 7860
-# base_path: /web
+base_path: /web
 tags:
   - openenv
 ---
@@ -57,7 +57,7 @@ Before using the environment, you need to build the Docker image:
 
 ```bash
 # From project root
-docker build -t cashflowmanager-env:latest -f server/Dockerfile .
+docker build -t cashflowmanager-env:latest .
 ```
 
 ## Deploying to Hugging Face Spaces
@@ -111,7 +111,8 @@ After deployment, your space will be available at:
 `https://huggingface.co/spaces/<repo-id>`
 
 The deployed space includes:
-- **Web Interface** at `/web` - Interactive UI for exploring the environment
+- **Gradio UI** at `/ui` - Interactive UI for Cashflowmanager environment
+- **Web Interface** at `/web` - OPENENV Default UI
 - **API Documentation** at `/docs` - Full OpenAPI/Swagger interface
 - **Health Check** at `/health` - Container health monitoring
 - **WebSocket** at `/ws` - Persistent session endpoint for low-latency interactions
@@ -247,9 +248,12 @@ cashflowmanager/
 ├── uv.lock                # Locked dependencies (generated)
 ├── client.py              # CashflowmanagerEnv client
 ├── models.py              # Action and Observation models
+├── Dockerfile             # Container image definition
+├── inference.py           # Inference script
+├── scripts/               # Scripts for testing and deployment
+    ├── validation-submission.sh          # Script for validating the submission   
 └── server/
     ├── __init__.py        # Server module exports
     ├── cashflowmanager_environment.py  # Core environment logic
     ├── app.py             # FastAPI application (HTTP + WebSocket endpoints)
-    └── Dockerfile         # Container image definition
 ```
