@@ -129,7 +129,9 @@ async def _print_ui_url():
     # logger.info(f"\033[1mCashflow UI running on http://127.0.0.1:{USE_PORT}/ui\033[0m")
 
 
-if __name__ == "__main__":
+def main():
     import uvicorn
-    USE_PORT = 7860
-    uvicorn.run(app, host="0.0.0.0", port=USE_PORT)
+    # Use 7860 as the default port for local/Space deployment
+    uvicorn.run(app, host="0.0.0.0", port=7860)
+if __name__ == "__main__":
+    main()
