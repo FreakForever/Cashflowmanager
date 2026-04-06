@@ -137,16 +137,12 @@
 #     main()
 
 from fastapi import FastAPI
+import gradio as gr
 
 # -------------------------
 # OpenEnv imports
 # -------------------------
-try:
-    from openenv.core.env_server.http_server import create_app
-except Exception as e:
-    raise ImportError(
-        "openenv is required. Install dependencies with `uv sync`"
-    ) from e
+from openenv.core.env_server.http_server import create_app
 
 try:
     from ..models import CashflowmanagerAction, CashflowmanagerObservation
@@ -156,7 +152,7 @@ except ImportError:
     from server.cashflowmanager_environment import CashflowmanagerEnvironment
 
 # -------------------------
-# Create OpenEnv FastAPI app
+# Create OpenEnv app FIRST
 # -------------------------
 app: FastAPI = create_app(
     CashflowmanagerEnvironment,
@@ -166,10 +162,15 @@ app: FastAPI = create_app(
     max_concurrent_envs=1,
 )
 
+# 🚨 KEY FIX: override root BEFORE mounting Gradio
+@app.get("/")
+def root():
+    return {"message": "Loading UI..."}
+
+
 # -------------------------
-# UI (Gradio)
+# Gradio UI
 # -------------------------
-import gradio as gr
 from server.client import groq_policy
 from server.tasks import run_task
 import pandas as pd
@@ -223,62 +224,36 @@ def run_simulation(difficulty="medium"):
             "Reward": "",
         })
 
-    df = pd.DataFrame(rows, columns=[
-        "Day", "Type", "Invoice ID", "Action",
-        "Cash", "Late Fee", "Interest", "Reward"
-    ])
-
+    df = pd.DataFrame(rows)
     return full_result, df
 
 
-def build_gradio_ui():
+def build_ui():
     with gr.Blocks(title="Cashflow RL Simulator") as demo:
         gr.Markdown("# 💸 Cashflow RL Simulator")
-        gr.Markdown(
-            "Simulates invoice payment decisions using an RL environment "
-            "with a Groq LLM (LLaMA 3.1) as the policy agent."
+
+        difficulty = gr.Dropdown(
+            ["easy", "medium", "hard"], value="medium"
         )
+        run_btn = gr.Button("Run Simulation")
 
-        with gr.Row():
-            difficulty_input = gr.Dropdown(
-                choices=["easy", "medium", "hard"],
-                value="medium",
-                label="Select Difficulty",
-            )
-            run_btn = gr.Button("Run Simulation", variant="primary")
+        summary = gr.JSON()
+        table = gr.Dataframe()
 
-        with gr.Row():
-            with gr.Column(scale=1):
-                summary_out = gr.JSON(label="Results Summary")
-
-            with gr.Column(scale=3):
-                table_out = gr.Dataframe(
-                    label="Step-by-Step History",
-                    headers=[
-                        "Day", "Type", "Invoice ID", "Action",
-                        "Cash", "Late Fee", "Interest", "Reward"
-                    ],
-                    wrap=False,
-                )
-
-        run_btn.click(
-            fn=run_simulation,
-            inputs=[difficulty_input],
-            outputs=[summary_out, table_out],
-        )
+        run_btn.click(run_simulation, inputs=[difficulty], outputs=[summary, table])
 
     return demo
 
 
 # -------------------------
-# Mount Gradio at "/"
+# Mount UI at ROOT
 # -------------------------
-gradio_app = build_gradio_ui()
+gradio_app = build_ui()
 app = gr.mount_gradio_app(app, gradio_app, path="/")
 
 
 # -------------------------
-# Entry point (for Docker)
+# Run
 # -------------------------
 if __name__ == "__main__":
     import uvicorn
