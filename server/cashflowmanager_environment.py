@@ -57,10 +57,10 @@ class CashflowmanagerEnvironment(Environment):
     Agent handles them one by one (one action per invoice).
     Unpaid invoices carry over with compounding interest + late fees.
 
-    Total steps = max_days × num_invoices
-      easy:   10 days × 2 invoices = 20 steps
-      medium:  5 days × 3 invoices = 15 steps
-      hard:    3 days × 5 invoices = 15 steps
+    Total steps = max_days × num_invoices + extra_buff
+      easy:   3 days × 3 invoices = 9 steps + buff
+      medium:  5 days × 3 invoices = 15 steps + buff
+      hard:    7 days × 3 invoices = 21 steps + buff
     """
 
     SUPPORTS_CONCURRENT_SESSIONS: bool = True
@@ -152,9 +152,11 @@ class CashflowmanagerEnvironment(Environment):
         # advance invoice index
         self.daily_index += 1
         done = False
+        day_boundary = False
 
         # if all invoices for today handled → advance to next day
         if self.daily_index >= len(self.daily_queue):
+            day_boundary = True
             self.day += 1
 
             # --- Age ALL active invoices ONCE per day ---
@@ -192,11 +194,22 @@ class CashflowmanagerEnvironment(Environment):
             self.credit_used += abs(self.cash)
             self.cash = 0.0
 
-        # reward
+        # Projected penalties for reward signal on intra-day steps
+        reward_late = late_fee_total
+        reward_interest = interest_total
+        if not day_boundary and not done:
+            queue_len = max(len(self.daily_queue), 1)
+            for active_inv in self.invoices:
+                if active_inv.due_in <= 0 and active_inv.amount > 0:
+                    reward_late += active_inv.late_fee / queue_len
+                if active_inv.amount > 0:
+                    reward_interest += (active_inv.amount * active_inv.interest) / queue_len
+
+        # reward (uses projected penalties; metadata keeps actuals for grading)
         reward = compute_reward(
             cash=self.cash,
-            late_fee=late_fee_total,
-            interest=interest_total,
+            late_fee=reward_late,
+            interest=reward_interest,
             credit_used=self.credit_used,
             paid=paid,
         )
