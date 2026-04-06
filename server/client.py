@@ -105,6 +105,7 @@ RULES:
 - URGENT invoices (due in 1-2 days) should be paid if cash allows
 - Skip only if cash is insufficient or invoice is not urgent
 - Minimize late fees and interest, maximize reward
+- Do NOT spend all cash today — you need cash for future day
 
 Respond ONLY with a JSON object in this exact format:
 {{"actions": [{{"invoice_id": 0, "type": 0}}, {{"invoice_id": 1, "type": 2}}, ...]}}

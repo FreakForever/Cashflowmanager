@@ -57,7 +57,7 @@ def run_task(difficulty: str):
     score = 0.0
     success = False
     
-    max_steps = env.params["max_days"] * env.params["num_invoices"] * 3 + 10
+    max_steps = env.params["max_days"] * env.params["num_invoices"] + 10
     
     try:
         while not done and steps_taken < max_steps:

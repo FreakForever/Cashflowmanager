@@ -27,12 +27,12 @@ DIFFICULTY_PRESETS = {
     "medium": {
         "max_days": 5,
         "num_invoices": 3,
-        "amount_range": (200, 400),
-        "credit_limit": 1000,
+        "amount_range": (300, 450),
+        "credit_limit": 700,
         "due_day": (5, 7),
         "late_fee": 50,
         "interest": 0.02,
-        "starting_cash": 1500,
+        "starting_cash": 1200,
         "min_payment": 50,
     },
     "hard": {
@@ -43,7 +43,7 @@ DIFFICULTY_PRESETS = {
         "due_day": (2, 5),
         "late_fee": 100,
         "interest": 0.05,
-        "starting_cash": 8000,
+        "starting_cash": 2500,
         "min_payment": 100,
     },
 }
