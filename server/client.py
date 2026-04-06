@@ -20,6 +20,11 @@ client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 # Cache: stores {day: {invoice_index: action_type}}
 _action_cache = {}
 
+def clear_action_cache():
+    """Reset the action cache between episodes."""
+    global _action_cache
+    _action_cache = {}
+
 def groq_policy(obs, history=None):
     """
     Batched policy — one API call per day for ALL invoices.

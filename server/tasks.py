@@ -49,6 +49,9 @@ def grade_episode(difficulty, logs, cash_hist):
 
 
 def run_task(difficulty, env, policy_fn, seed=42):
+    from server.client import clear_action_cache
+    clear_action_cache()  # Reset stale LLM decisions from prior episodes
+
     obs = env.reset(difficulty=difficulty, seed=seed)
 
     def serialize_invoices(invoices):

@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 sys.path.append(os.path.join(os.path.dirname(__file__), 'cashflowmanager'))
 
 from server.cashflowmanager_environment import CashflowmanagerEnvironment
-from server.client import groq_policy
+from server.client import groq_policy, clear_action_cache
 from server.tasks import grade_episode
 
 load_dotenv()
@@ -50,7 +50,10 @@ def run_task(difficulty: str):
     obs = env.reset(seed=42) # Fixed seed for reproducible baseline
     done = False
     
+    clear_action_cache()  # Reset stale LLM decisions from prior episodes
+    
     history: List[dict] = []
+    logs: List[dict] = []      # Observation-level logs for grading
     rewards: List[float] = []
     cash_hist: List[float] = [obs.cash]
     steps_taken = 0
@@ -87,10 +90,20 @@ def run_task(difficulty: str):
                 "interest": obs.metadata.get("interest", 0),
             })
             
+            # Observation-level logs for grading (matches tasks.py structure)
+            logs.append({
+                "day": obs.day,
+                "cash": obs.cash,
+                "credit_used": obs.credit_used,
+                "late_fee": obs.metadata.get("late_fee", 0),
+                "interest": obs.metadata.get("interest", 0),
+                "reward": reward,
+            })
+            
             if done:
                 break
                 
-        score = grade_episode(difficulty, history, cash_hist)
+        score = grade_episode(difficulty, logs, cash_hist)
         score = min(max(score, 0.0), 1.0)
         success = score >= SUCCESS_SCORE_THRESHOLD
         

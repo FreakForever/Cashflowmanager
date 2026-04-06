@@ -211,14 +211,15 @@ def run_simulation(difficulty="medium"):
             "Day": day["day"],
             "Type": "── day end",
             "Invoice ID": "",
-            "Action": "",
-            "Cash": round(day["end_cash"] or 0, 2),
-            "Late Fee": round(day["day_late_fee"] or 0, 2),
-            "Interest": round(day["day_interest"] or 0, 4),
-            "Reward": "",
+            "Action":     "",
+            "Cash":       round(day["end_cash"] or 0, 2),
+            "Credit":     "",
+            "Late Fee":   round(day["day_late_fee"] or 0, 2),
+            "Interest":   round(day["day_interest"] or 0, 4),
+            "Reward":     "",
         })
 
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(rows, columns=["Day","Type","Invoice ID","Action","Cash","Credit","Late Fee","Interest","Reward"])
     return full_result, df
 
 
@@ -248,10 +249,7 @@ def build_ui():
             with gr.Column(scale=3):
                 table = gr.Dataframe(
                     label="Step-by-Step History",
-                    headers=[
-                        "Day","Type","Invoice ID","Action",
-                        "Cash","Credit","Late Fee","Interest","Reward"
-                    ],
+                    headers=["Day","Type","Invoice ID","Action","Cash","Credit","Late Fee","Interest","Reward"],
                     wrap=False,
                 )
 
