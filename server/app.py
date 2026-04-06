@@ -250,7 +250,7 @@ def build_ui():
 # Mount Gradio at ROOT
 # -------------------------
 gradio_app = build_ui()
-app = gr.mount_gradio_app(app, gradio_app, path="/")
+app = gr.mount_gradio_app(app, gradio_app, path="/ui")
 
 
 # -------------------------
