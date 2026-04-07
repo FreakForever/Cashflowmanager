@@ -2,7 +2,13 @@
 import os
 import json
 from dotenv import load_dotenv
-from models import CashflowmanagerAction
+try:
+    from cashflowmanager.models import CashflowmanagerAction
+except ImportError:
+    try:
+        from models import CashflowmanagerAction
+    except ImportError:
+        from ..models import CashflowmanagerAction
 
 try:
     from openai import OpenAI

@@ -6,11 +6,15 @@ from openenv.core.env_server.interfaces import Environment
 from openenv.core.env_server.types import State
 
 try:
-    from ..models import CashflowmanagerAction, CashflowmanagerObservation, Invoice
+    from cashflowmanager.models import CashflowmanagerAction, CashflowmanagerObservation, Invoice
+    from cashflowmanager.server.reward import compute_reward
 except ImportError:
-    from models import CashflowmanagerAction, CashflowmanagerObservation, Invoice
-
-from server.reward import compute_reward
+    try:
+        from models import CashflowmanagerAction, CashflowmanagerObservation, Invoice
+        from server.reward import compute_reward
+    except ImportError:
+        from ..models import CashflowmanagerAction, CashflowmanagerObservation, Invoice
+        from .reward import compute_reward
 
 DIFFICULTY_PRESETS = {
     "easy": {
