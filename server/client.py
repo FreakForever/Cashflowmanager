@@ -1,7 +1,8 @@
-
 import os
 import json
+import sys
 from dotenv import load_dotenv
+
 try:
     from cashflowmanager.models import CashflowmanagerAction
 except ImportError:
@@ -13,15 +14,33 @@ except ImportError:
 try:
     from openai import OpenAI
 except ImportError:
-    pass
+    OpenAI = None
 
 load_dotenv()
 
 API_BASE_URL = os.environ.get("API_BASE_URL") or "https://api.groq.com/openai/v1"
 MODEL_NAME = os.environ.get("MODEL_NAME") or "llama-3.1-8b-instant"
-API_KEY = os.environ.get("HF_TOKEN") or os.environ.get("GROQ_API_KEY") or os.environ.get("OPENAI_API_KEY")
+API_KEY = os.environ.get("HF_TOKEN") or os.environ.get("GROQ_API_KEY") or os.environ.get("OPENAI_API_KEY") or os.environ.get("API_KEY")
 
-client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+_client = None
+
+def get_client():
+    """Lazy-load OpenAI client to avoid import-time crashes."""
+    global _client
+    if _client is not None:
+        return _client
+    if OpenAI is None:
+        print("[Policy] openai library not installed", file=sys.stderr)
+        return None
+    if not API_KEY:
+        print("[Policy] No API key found (checked HF_TOKEN, GROQ_API_KEY, OPENAI_API_KEY, API_KEY)", file=sys.stderr)
+        return None
+    try:
+        _client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+        return _client
+    except Exception as e:
+        print(f"[Policy] Failed to create OpenAI client: {e}", file=sys.stderr)
+        return None
 
 # Cache: stores {day: {invoice_index: action_type}}
 _action_cache = {}
@@ -125,7 +144,11 @@ Where type: 0=Skip, 1=Pay Min, 2=Pay Full
 Include one entry per invoice [{', '.join(str(i) for i in range(len(today_invoices)))}]"""
 
     try:
-        resp = client.chat.completions.create(
+        api_client = get_client()
+        if api_client is None:
+            print("[Policy] No API client — defaulting all to skip")
+            return {}
+        resp = api_client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=MODEL_NAME,
             response_format={"type": "json_object"},
