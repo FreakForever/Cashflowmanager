@@ -4,11 +4,15 @@ import gradio as gr
 from openenv.core.env_server.http_server import create_app
 
 try:
-    from ..models import CashflowmanagerAction, CashflowmanagerObservation
-    from .cashflowmanager_environment import CashflowmanagerEnvironment
+    from cashflowmanager.models import CashflowmanagerAction, CashflowmanagerObservation
+    from cashflowmanager.server.cashflowmanager_environment import CashflowmanagerEnvironment
 except ImportError:
-    from models import CashflowmanagerAction, CashflowmanagerObservation
-    from server.cashflowmanager_environment import CashflowmanagerEnvironment
+    try:
+        from models import CashflowmanagerAction, CashflowmanagerObservation
+        from server.cashflowmanager_environment import CashflowmanagerEnvironment
+    except ImportError:
+        from ..models import CashflowmanagerAction, CashflowmanagerObservation
+        from .cashflowmanager_environment import CashflowmanagerEnvironment
 
 
 app: FastAPI = create_app(
@@ -19,8 +23,16 @@ app: FastAPI = create_app(
     max_concurrent_envs=1,
 )
 
-from server.client import groq_policy
-from server.tasks import run_task
+try:
+    from cashflowmanager.server.client import groq_policy
+    from cashflowmanager.server.tasks import run_task
+except ImportError:
+    try:
+        from server.client import groq_policy
+        from server.tasks import run_task
+    except ImportError:
+        from .client import groq_policy
+        from .tasks import run_task
 import pandas as pd
 import time
 

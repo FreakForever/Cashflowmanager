@@ -46,23 +46,24 @@ def run_task(difficulty: str):
     """
     log_start(task=difficulty, env=BENCHMARK, model=MODEL_NAME)
     
-    env = CashflowmanagerEnvironment(difficulty=difficulty)
-    obs = env.reset(seed=42) # Fixed seed for reproducible baseline
-    done = False
-    
-    clear_action_cache()  # Reset stale LLM decisions from prior episodes
-    
     history: List[dict] = []
     logs: List[dict] = []      # Observation-level logs for grading
     rewards: List[float] = []
-    cash_hist: List[float] = [obs.cash]
+    cash_hist: List[float] = []
     steps_taken = 0
     score = 0.0
     success = False
     
-    max_steps = env.params["max_days"] * env.params["num_invoices"] + 10
-    
     try:
+        env = CashflowmanagerEnvironment(difficulty=difficulty)
+        obs = env.reset(seed=42) # Fixed seed for reproducible baseline
+        done = False
+        
+        clear_action_cache()  # Reset stale LLM decisions from prior episodes
+        cash_hist.append(obs.cash)
+        
+        max_steps = env.params["max_days"] * env.params["num_invoices"] + 10
+        
         while not done and steps_taken < max_steps:
             steps_taken += 1
             
